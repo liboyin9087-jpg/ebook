@@ -33,12 +33,17 @@ export const PageSheet: React.FC<PageSheetProps> = ({
       style={{ 
         zIndex,
         width: 'calc(50% - 1px)', // Slight gap for spine
+        willChange: 'transform',
       }}
       animate={{ rotateY: flipState }}
       transition={{ 
-        duration: 0.8, 
-        ease: [0.645, 0.045, 0.355, 1.000], // Cubic bezier for paper feel
+        duration: 0.7,
+        ease: [0.43, 0.13, 0.23, 0.96], // Smoother easing for realistic paper flip
+        type: "spring",
+        stiffness: 80,
+        damping: 20,
       }}
+      initial={false}
     >
       {/* FRONT OF THE SHEET (Right Side Page) */}
       <div 
@@ -48,8 +53,11 @@ export const PageSheet: React.FC<PageSheetProps> = ({
           <img 
             src={frontData.contentUrl} 
             alt={`Page ${frontData.index}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-opacity duration-300"
             loading="lazy"
+            decoding="async"
+            onLoad={(e) => e.currentTarget.style.opacity = '1'}
+            style={{ opacity: 0 }}
           />
           <div className="absolute bottom-4 right-4 text-xs text-gray-500 font-mono bg-white/80 px-2 rounded">
              {frontData.index + 1}
@@ -67,8 +75,11 @@ export const PageSheet: React.FC<PageSheetProps> = ({
           <img 
             src={backData.contentUrl} 
             alt={`Page ${backData.index}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-opacity duration-300"
             loading="lazy"
+            decoding="async"
+            onLoad={(e) => e.currentTarget.style.opacity = '1'}
+            style={{ opacity: 0 }}
           />
           <div className="absolute bottom-4 left-4 text-xs text-gray-500 font-mono bg-white/80 px-2 rounded">
              {backData.index + 1}

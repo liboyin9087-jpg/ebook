@@ -26,8 +26,11 @@ export const BookContainer: React.FC<BookContainerProps> = ({ viewState, pages, 
 
   return (
     <div 
-      className="relative w-full h-full flex items-center justify-center transition-transform duration-300"
-      style={{ transform: `scale(${viewState.scale})` }}
+      className="relative w-full h-full flex items-center justify-center transition-transform duration-500 ease-out"
+      style={{ 
+        transform: `scale(${viewState.scale})`,
+        willChange: 'transform',
+      }}
     >
       {/* The Book Stage */}
       <div 

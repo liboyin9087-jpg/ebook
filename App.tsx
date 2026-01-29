@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookContainer } from './components/Book/BookContainer';
 import { Toolbar } from './components/UI/Toolbar';
 import { ThumbnailSidebar } from './components/UI/ThumbnailSidebar';
 import { BookmarkSidebar } from './components/UI/BookmarkSidebar';
 import { LibraryModal } from './components/UI/LibraryModal';
+import { Loader } from './components/UI/Loader';
 import { ViewState, PageData } from './types';
 import { DEFAULT_BOOK } from './constants';
 
@@ -11,6 +12,8 @@ const App: React.FC = () => {
   // Application Data State
   const [pages, setPages] = useState<PageData[]>(DEFAULT_BOOK.pages);
   const [bookTitle, setBookTitle] = useState<string>(DEFAULT_BOOK.title);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // View State (Scale defaults to 1.0 = 100%)
   const [viewState, setViewState] = useState<ViewState>({
@@ -38,31 +41,43 @@ const App: React.FC = () => {
     localStorage.setItem('flipbook_bookmarks', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
-  // Handle Resize: Only auto-scale on very small screens, otherwise respect 100% default
+  // Initial loading
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Handle Resize with debounce for better performance
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth;
-      // If mobile, we must scale down to fit the double spread or single page
-      if (width < 768) {
-        setViewState(prev => ({ ...prev, scale: 0.6 }));
-      } else if (width < 1024) {
-        // On tablet, maybe slight reduction
-        setViewState(prev => ({ ...prev, scale: 0.8 }));
-      } else {
-        // On desktop, keep default 100% (scale 1) unless user changed it
-        // We only reset if it was previously smaller due to responsive needs
-        setViewState(prev => {
-             if (prev.scale < 1) return { ...prev, scale: 1 };
-             return prev;
-        });
-      }
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+      
+      resizeTimerRef.current = setTimeout(() => {
+        const width = window.innerWidth;
+        // If mobile, we must scale down to fit the double spread or single page
+        if (width < 768) {
+          setViewState(prev => ({ ...prev, scale: 0.6 }));
+        } else if (width < 1024) {
+          // On tablet, maybe slight reduction
+          setViewState(prev => ({ ...prev, scale: 0.8 }));
+        } else {
+          // On desktop, keep default 100% (scale 1) unless user changed it
+          setViewState(prev => {
+               if (prev.scale < 1) return { ...prev, scale: 1 };
+               return prev;
+          });
+        }
+      }, 150); // Debounce 150ms
     };
     
     // Initial check
     handleResize(); 
     
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+    };
   }, []);
 
   // Update total pages when content changes
@@ -144,6 +159,8 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 overflow-hidden relative font-sans">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80 pointer-events-none" />
+      
+      {isLoading && <Loader />}
       
       <div className="flex-1 relative overflow-hidden flex flex-col">
         
