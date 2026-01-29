@@ -1,8 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
-import { Upload, BookOpen, Link2, Trash2, Eye } from 'lucide-react';
+import { Upload, BookOpen, Link2, Trash2, Eye, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../src/lib/supabase';
 import type { Book } from '../../src/lib/supabase';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Initialize PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs`;
 
 interface BookDisplay extends Book {
   pages?: string[];
@@ -11,9 +15,12 @@ interface BookDisplay extends Book {
 export const Dashboard: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [books, setBooks] = useState<BookDisplay[]>([]);
   const [share, setShare] = useState<{ url: string; bookId: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   // 從 Supabase 載入已上傳的電子書
   useEffect(() => {
@@ -43,10 +50,57 @@ export const Dashboard: React.FC = () => {
 
     setUploading(true);
     setError(null);
+    setSuccess(null);
+    setUploadProgress(0);
 
     try {
       const bookId = `book-${Date.now()}`;
-      const fileName = files[0].name.replace(/\.[^/.]+$/, '');
+      const firstFile = files[0];
+      const fileName = firstFile.name.replace(/\.[^/.]+$/, '');
+      
+      let imagesToUpload: { blob: Blob; index: number }[] = [];
+
+      // Check if it's a PDF
+      if (firstFile.type === 'application/pdf') {
+        setUploadProgress(10);
+        
+        // Convert PDF to images
+        const arrayBuffer = await firstFile.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        setUploadProgress(20);
+        
+        // Render each page as image
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 }); // Higher quality
+          
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          if (context) {
+            await page.render({ canvasContext: context, viewport }).promise;
+            
+            // Convert to blob
+            const blob = await new Promise<Blob>((resolve) => {
+              canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9);
+            });
+            
+            imagesToUpload.push({ blob, index: i - 1 });
+          }
+          
+          setUploadProgress(20 + (i / pdf.numPages) * 30);
+        }
+      } else {
+        // Images
+        for (let i = 0; i < files.length; i++) {
+          imagesToUpload.push({ blob: files[i], index: i });
+        }
+        setUploadProgress(20);
+      }
 
       // 1. 建立書本記錄
       const { data: bookData, error: bookError } = await supabase
@@ -54,38 +108,55 @@ export const Dashboard: React.FC = () => {
         .insert({
           id: bookId,
           title: fileName,
-          page_count: files.length,
+          page_count: imagesToUpload.length,
         })
         .select()
         .single();
 
-      if (bookError) throw bookError;
+      if (bookError) {
+        console.error('Book creation error:', bookError);
+        throw new Error('建立書本記錄失敗：' + bookError.message);
+      }
+
+      setUploadProgress(50);
 
       // 2. 上傳每個頁面檔案到 Supabase Storage
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = `${bookId}/page-${i}`;
+      for (let i = 0; i < imagesToUpload.length; i++) {
+        const { blob, index } = imagesToUpload[i];
+        const filePath = `${bookId}/page-${index}.jpg`;
         
         const { error: uploadError } = await supabase.storage
           .from('ebook-pages')
-          .upload(filePath, file, {
+          .upload(filePath, blob, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: 'image/jpeg'
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw new Error(`上傳頁面 ${index + 1} 失敗：` + uploadError.message);
+        }
 
         // 3. 建立頁面記錄
         const { error: pageError } = await supabase
           .from('book_pages')
           .insert({
             book_id: bookId,
-            page_number: i,
+            page_number: index,
             file_path: filePath,
           });
 
-        if (pageError) throw pageError;
+        if (pageError) {
+          console.error('Page record error:', pageError);
+          throw new Error(`建立頁面記錄 ${index + 1} 失敗：` + pageError.message);
+        }
+        
+        setUploadProgress(50 + ((i + 1) / imagesToUpload.length) * 45);
       }
+
+      setUploadProgress(100);
+      setSuccess(`成功上傳 ${imagesToUpload.length} 頁！`);
 
       // 重新載入書本列表
       await fetchBooks();
@@ -96,11 +167,15 @@ export const Dashboard: React.FC = () => {
 
       // 清空檔案選擇
       if (fileRef.current) fileRef.current.value = '';
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
     } catch (e: any) {
-      setError(e.message || '上傳失敗');
+      setError(e.message || '上傳失敗，請確認 Supabase 設定是否正確');
       console.error('Upload error:', e);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -135,38 +210,85 @@ export const Dashboard: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('已複製連結！');
+    setSuccess('已複製連結到剪貼簿！');
+    setTimeout(() => setSuccess(null), 2000);
+  };
+
+  // Drag and drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && fileRef.current) {
+      fileRef.current.files = e.dataTransfer.files;
+      handleUpload();
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
         {/* 標題區 */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-3 flex items-center justify-center gap-3">
-            <BookOpen className="w-10 h-10 text-indigo-600" />
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3 flex items-center justify-center gap-3">
+            <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" />
             電子書管理平台
           </h1>
-          <p className="text-gray-600">上傳 PDF 或圖片，立即產生專屬分享連結與 QR Code</p>
+          <p className="text-sm md:text-base text-gray-600">上傳 PDF 或圖片，立即產生專屬分享連結與 QR Code</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        {/* Global notifications */}
+        {success && (
+          <div className="mb-6 max-w-4xl mx-auto">
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           {/* 上傳區塊 */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2 text-gray-800">
-              <Upload className="w-6 h-6 text-indigo-600" />
+          <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100">
+            <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 flex items-center gap-2 text-gray-800">
+              <Upload className="w-5 h-5 md:w-6 md:h-6 text-indigo-600" />
               上傳電子書
             </h2>
             
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-indigo-200 rounded-xl p-6 hover:border-indigo-400 transition-colors bg-indigo-50/30">
+              <div 
+                className={`border-2 border-dashed rounded-xl p-6 transition-all ${
+                  dragActive 
+                    ? 'border-indigo-600 bg-indigo-50' 
+                    : 'border-indigo-200 hover:border-indigo-400 bg-indigo-50/30'
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
                 <input
                   ref={fileRef}
                   type="file"
                   accept="application/pdf,image/*"
                   className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
                   multiple
+                  onChange={() => setError(null)}
                 />
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  或拖放檔案到此處
+                </p>
               </div>
 
               <button
@@ -174,22 +296,35 @@ export const Dashboard: React.FC = () => {
                 onClick={handleUpload}
                 disabled={uploading}
               >
-                {uploading ? '上傳中...' : '開始上傳'}
+                {uploading ? `上傳中... ${Math.round(uploadProgress)}%` : '開始上傳'}
               </button>
 
+              {uploading && (
+                <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                  <div 
+                    className="bg-indigo-600 h-2.5 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">上傳失敗</p>
+                    <p className="text-xs mt-1">{error}</p>
+                  </div>
                 </div>
               )}
 
               {share && (
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 mt-6">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 md:p-6 mt-6">
                   <h3 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
                     <Link2 className="w-5 h-5" />
                     分享連結
                   </h3>
-                  <div className="bg-white rounded-lg p-3 mb-3 break-all text-sm border border-green-200">
+                  <div className="bg-white rounded-lg p-3 mb-3 break-all text-xs md:text-sm border border-green-200">
                     <a href={share.url} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer">
                       {share.url}
                     </a>
@@ -202,7 +337,7 @@ export const Dashboard: React.FC = () => {
                   </button>
                   <div className="flex justify-center">
                     <div className="bg-white p-4 rounded-xl shadow-md">
-                      <QRCode value={share.url} size={160} />
+                      <QRCode value={share.url} size={140} />
                     </div>
                   </div>
                 </div>
@@ -211,9 +346,9 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 電子書列表 */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2 text-gray-800">
-              <BookOpen className="w-6 h-6 text-indigo-600" />
+          <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100">
+            <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 flex items-center gap-2 text-gray-800">
+              <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-indigo-600" />
               已上傳電子書 ({books.length})
             </h2>
 
@@ -221,6 +356,7 @@ export const Dashboard: React.FC = () => {
               <div className="text-center py-12 text-gray-400">
                 <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <p>尚未上傳任何電子書</p>
+                <p className="text-xs mt-2">請使用左側上傳功能新增電子書</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
@@ -236,7 +372,7 @@ export const Dashboard: React.FC = () => {
                           {new Date(book.created_at).toLocaleString('zh-TW')} · {book.page_count} 頁
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-shrink-0">
                         <a
                           href={`/book/${book.id}`}
                           target="_blank"
