@@ -84,10 +84,14 @@ export const Dashboard: React.FC = () => {
           if (context) {
             await page.render({ canvasContext: context, viewport }).promise;
             
-            // Convert to blob
-            const blob = await new Promise<Blob>((resolve) => {
-              canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9);
+            // Convert to blob with error handling
+            const blob = await new Promise<Blob | null>((resolve) => {
+              canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9);
             });
+            
+            if (!blob) {
+              throw new Error(`無法轉換頁面 ${i} 為圖片`);
+            }
             
             imagesToUpload.push({ blob, index: i - 1 });
           }
@@ -230,9 +234,16 @@ export const Dashboard: React.FC = () => {
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && fileRef.current) {
-      fileRef.current.files = e.dataTransfer.files;
-      handleUpload();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Create a new change event to trigger upload
+      const event = new Event('change', { bubbles: true });
+      if (fileRef.current) {
+        // Store files for processing
+        const dt = new DataTransfer();
+        Array.from(e.dataTransfer.files).forEach(file => dt.items.add(file));
+        fileRef.current.files = dt.files;
+        handleUpload();
+      }
     }
   };
 

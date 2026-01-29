@@ -116,26 +116,26 @@ export const Reader: React.FC = () => {
     }
   };
 
-  const nextPage = () => {
+  const nextPage = useCallback(() => {
     if (currentPage < pages.length - 1 && !isFlipping) {
       setIsFlipping(true);
       setCurrentPage(currentPage + 1);
       setTimeout(() => setIsFlipping(false), 600);
     }
-  };
+  }, [currentPage, pages.length, isFlipping]);
 
-  const prevPage = () => {
+  const prevPage = useCallback(() => {
     if (currentPage > 0 && !isFlipping) {
       setIsFlipping(true);
       setCurrentPage(currentPage - 1);
       setTimeout(() => setIsFlipping(false), 600);
     }
-  };
+  }, [currentPage, isFlipping]);
 
   const zoomIn = () => setScale(Math.min(scale + 0.2, 2.5));
   const zoomOut = () => setScale(Math.max(scale - 0.2, 0.3));
   
-  const toggleBookmark = () => {
+  const toggleBookmark = useCallback(() => {
     const newBookmarks = new Set(bookmarks);
     if (newBookmarks.has(currentPage)) {
       newBookmarks.delete(currentPage);
@@ -143,7 +143,7 @@ export const Reader: React.FC = () => {
       newBookmarks.add(currentPage);
     }
     setBookmarks(newBookmarks);
-  };
+  }, [bookmarks, currentPage]);
 
   const goToPage = (pageIndex: number) => {
     setCurrentPage(pageIndex);
@@ -162,7 +162,7 @@ export const Reader: React.FC = () => {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, pages.length, isFlipping, showThumbnails]);
+  }, [nextPage, prevPage, toggleBookmark, showThumbnails]);
 
   // Touch gestures for mobile
   useEffect(() => {
@@ -196,7 +196,7 @@ export const Reader: React.FC = () => {
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [currentPage, pages.length, isFlipping]);
+  }, [nextPage, prevPage]);
 
   if (loading) {
     return (
@@ -339,10 +339,11 @@ export const Reader: React.FC = () => {
         }}
       >
         <div 
-          className={`relative transition-all duration-600 ${isFlipping ? 'scale-95 opacity-80' : 'scale-100 opacity-100'}`}
+          className={`relative transition-all ${isFlipping ? 'scale-95 opacity-80' : 'scale-100 opacity-100'}`}
           style={{ 
             transform: `scale(${scale})`,
             transformOrigin: 'center',
+            transitionDuration: '500ms',
             maxWidth: '100%',
             maxHeight: '100%'
           }}
@@ -391,12 +392,12 @@ export const Reader: React.FC = () => {
 
         {/* 縮圖預覽輪播（底部） - 僅桌面版顯示 */}
         {!showThumbnails && (
-          <div className="mt-3 md:mt-4 hidden md:flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+          <div className="mt-3 md:mt-4 hidden md:flex gap-2 overflow-x-auto pb-2">
             {pages.map((page, idx) => (
               <button
                 key={idx}
                 onClick={() => goToPage(idx)}
-                className={`flex-shrink-0 border-2 rounded transition-all ${
+                className={`relative flex-shrink-0 border-2 rounded transition-all ${
                   idx === currentPage
                     ? 'border-indigo-500 scale-110 shadow-lg'
                     : 'border-gray-600 hover:border-gray-400 hover:scale-105'
