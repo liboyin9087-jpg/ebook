@@ -23,3 +23,25 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# Build artifacts
+build
+*.tsbuildinfo
+
+# OS files
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+tmp
+temp
+*.tmp

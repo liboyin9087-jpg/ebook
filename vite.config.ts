@@ -10,6 +10,20 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      build: {
+        target: 'es2015',
+        minify: 'esbuild',
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              'pdf-vendor': ['pdfjs-dist'],
+              'supabase-vendor': ['@supabase/supabase-js']
+            }
+          }
+        },
+        chunkSizeWarningLimit: 1000
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
