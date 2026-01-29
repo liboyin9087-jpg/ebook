@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
 import { Upload, BookOpen, Link2, Trash2, Eye } from 'lucide-react';
-import { supabase } from '../src/lib/supabase';
-import type { Book } from '../src/lib/supabase';
+import { supabase } from '../../src/lib/supabase';
+import type { Book } from '../../src/lib/supabase';
 
 interface BookDisplay extends Book {
   pages?: string[];

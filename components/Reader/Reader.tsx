@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Home, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
-import { supabase } from '../src/lib/supabase';
+import { supabase } from '../../src/lib/supabase';
 
 interface BookData {
   id: string;
