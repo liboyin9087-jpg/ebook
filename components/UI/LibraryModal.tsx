@@ -5,7 +5,7 @@ import { BookData, PageData } from '../../types';
 import { Upload, BookOpen, ImageIcon, X, FileText, Loader2 } from '../Icons';
 
 // Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs`;
 
 interface LibraryModalProps {
   isOpen: boolean;
