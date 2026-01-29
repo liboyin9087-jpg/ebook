@@ -1,0 +1,5 @@
+{
+  "name": "FlipReact Plus",
+  "description": "A modern reconstruction of a 3D Flipbook reader using React, Tailwind, and Framer Motion. Features realistic page turning, zoom, and responsive design.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,23 @@
+{
+  "name": "flipreact-plus-server",
+  "version": "1.0.0",
+  "description": "Backend server for FlipReact Plus - handles PDF uploads and book management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["ebook", "pdf", "flipbook", "server", "api"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.1.0",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "nanoid": "^5.1.6",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4"
+  }
+}
