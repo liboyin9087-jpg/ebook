@@ -1,0 +1,28 @@
+{
+  "name": "flipreact-plus",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A modern 3D Flipbook reader using React, Tailwind, and Framer Motion with realistic page turning, zoom, and PDF upload support.",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "cd server && npm start",
+    "dev:all": "npm run dev & npm run dev:server",
+    "build": "vite build",
+    "preview": "vite preview",
+    "install:all": "npm install && cd server && npm install"
+  },
+  "dependencies": {
+    "framer-motion": "^12.29.2",
+    "lucide-react": "^0.563.0",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

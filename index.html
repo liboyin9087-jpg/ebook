@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlipReact Plus - 3D Flipbook Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                500: '#0ea5e9',
+                600: '#0284c7',
+                900: '#0c4a6e',
+              },
+              wood: '#2c1e14',
+            },
+            boxShadow: {
+              'page-left': '5px 0 15px rgba(0,0,0,0.1)',
+              'page-right': '-5px 0 15px rgba(0,0,0,0.1)',
+              'spine': 'inset 20px 0 50px rgba(0,0,0,0.1)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .perspective-2000 {
+        perspective: 2000px;
+      }
+      .preserve-3d {
+        transform-style: preserve-3d;
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+      }
+      .rotate-y-180 {
+        transform: rotateY(180deg);
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "framer-motion": "https://esm.sh/framer-motion@^12.29.2",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.10.38",
+    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@4.10.38/"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-900 text-white overflow-hidden">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
