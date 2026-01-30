@@ -109,4 +109,9 @@ Vercel 提供最簡單的部署方式。在 Vercel 儀表板中匯入 GitHub rep
 
 ---
 
+## 🚀 部署狀態
+
+[![部署在 Vercel](https://img.shields.io/badge/部署-Vercel-black?style=flat&logo=vercel)](https://vercel.com)
+[![由 Supabase 提供支持](https://img.shields.io/badge/後端-Supabase-green?style=flat&logo=supabase)](https://supabase.com)
+
 使用 ❤️ 和 TypeScript 打造
